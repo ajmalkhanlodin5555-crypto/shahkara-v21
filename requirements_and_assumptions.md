@@ -238,3 +238,90 @@ Practical alternatives if retrying later:
 ### U5. Constraints (unchanged)
 - No data download, no backtest, no data invention, no spec modification.
 - Run tests only if code changes are made.
+
+## V. Official Dukascopy S3 Export & dukascopy-node — Verified Findings (this turn)
+
+Source URLs:
+- Dukascopy Wiki (official S3 export guide): https://www.dukascopy.com/wiki/en/development/data-export/
+- dukascopy-node (third-party tool): https://github.com/Leo4815162342/dukascopy-node
+- dukascopy-node docs: https://www.dukascopy-node.app/
+
+### V1. Official S3 Export (Dukascopy Bank SA)
+
+**Access method:** AWS S3 bucket `cfg-public-proper-wallaby` in `eu-west-1` (Requester Pays).
+
+**Prerequisites (verified):**
+- AWS CLI installed and configured
+- **Valid AWS credentials** (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+- Access to `eu-west-1` region
+- Understanding of Requester Pays billing model (you pay for data transfer)
+
+**Account requirements:** No Dukascopy trading account needed. Requires an **AWS account with credentials**.
+
+**Instrument discovery:** Must list top-level prefixes first (`aws s3api list-objects-v2 --bucket cfg-public-proper-wallaby --delimiter "/" --request-payer requester`). XAUUSD is listed in the point-value dictionary with value 100 (same as JPY pairs).
+
+**XAUUSD M5 availability:** Raw `.bi5` tick files available from the bucket. M5 must be **resampled from ticks** (no native M5 files). Pipeline provided to decode and resample to CSV/Parquet.
+
+**Data format (raw):** `.bi5` LZMA-compressed tick files (20 bytes/tick: timestamp ms since day start UTC, ask price, bid price, ask volume, bid volume).
+
+**Volume definition (verified from wiki):** "In millions of base currency units" for both ask and bid volume fields.
+
+**Timestamp:** Milliseconds since start of day (UTC).
+
+**CSV output schema (from pipeline):** After decoding/resampling, pipeline outputs `time,open,high,low,close,volume,spread` (time = bar open in UTC ISO 8601; prices = bid; volume = sum bid+ask; spread = mean ask-bid).
+
+**Terms of use (verified):** "The information on this web site is provided only as general information, which may be incomplete or outdated." Full disclaimer linked. No explicit research/backtesting license grant found.
+
+**Data NOT OANDA:** Dukascopy Bank SA data. Do not claim it matches OANDA or user's broker.
+
+### V2. dukascopy-node (Third-Party Tool)
+
+**What it is:** Open-source Node.js/CLI tool (MIT license) using Dukascopy's public APIs. **Not affiliated, endorsed, or vetted by Dukascopy Bank SA.** "Intended for research and educational purposes."
+
+**XAUUSD support (verified):** Instrument ID `xauusd`, earliest data **June 3, 1999 UTC**.
+
+**Timeframes (verified):** Supports `tick`, `m1`, `m5`, `m15`, `m30`, `h1`, `h4`, `d1` (docs state "on top of all other offered timeframes").
+
+**Output formats (verified):** CSV, JSON.
+
+**CSV schema for timeframes (verified example):**
+```
+timestamp,open,high,low,close
+2024-02-13 00:00:00,1.07718,1.07725,1.07718,1.07723
+```
+**No volume column** in OHLC CSV output. Tick data CSV includes `askVolume` and `bidVolume` but units not explicitly documented.
+
+**Volume field (unverified for OHLC):** Tick data has `askVolume`/`bidVolume` (example shows 0.75). OHLC CSV omits volume. Exact definition for any aggregated volume not documented.
+
+**Timezone (verified):** Default UTC. Configurable via `--time-zone` (IANA names, e.g., `America/New_York`, `Europe/London`).
+
+**Date format (verified):** Configurable via `--date-format` (dayjs tokens). ISO format supported (`--date-format iso`).
+
+**Account requirements (verified):** **No Dukascopy account, no login, no API key required.** Uses public APIs.
+
+**Terms (verified):** Legal disclaimer: "`dukascopy-node` is not affiliated, endorsed, or vetted by Dukascopy Bank SA. It's an open-source tool that uses Dukascopy's publicly available APIs, and is intended for research and educational purposes." MIT license on code only.
+
+**Data NOT OANDA:** Dukascopy data. Do not claim it matches OANDA or user's broker.
+
+### V3. Compatibility with SHAHKARA Loader
+
+Loader requires: `time,open,high,low,close` + one of `tick_volume` or `volume`.
+
+- **Official S3 + pipeline:** Produces `time,open,high,low,close,volume,spread` → **compatible** (has `volume`).
+- **dukascopy-node OHLC CSV:** Produces `timestamp,open,high,low,close` → **NOT compatible** (missing volume field).
+- **dukascopy-node tick CSV:** Produces `timestamp,askPrice,bidPrice,askVolume,bidVolume` → requires resampling + OHLC conversion + volume aggregation.
+
+### V4. Unresolved Questions (Blocking)
+
+1. **Volume for dukascopy-node OHLC:** No volume column in OHLC CSV. Tick volume units undefined. Cannot satisfy loader without custom aggregation + unverified volume definition.
+2. **Research/backtesting license:** Neither source grants explicit permission for backtesting reuse. Official wiki has only general disclaimer. dukascopy-node says "intended for research and educational purposes" but no formal license grant for data.
+3. **M5 XAUUSD via dukascopy-node:** Docs show m1 example; claims "all other offered timeframes" but M5 for XAUUSD not explicitly demonstrated.
+4. **Volume definition for SHAHKARA VWCC:** "True VWCC" needs intra-zone volume weights. Neither source provides consolidated global gold volume. Dukascopy volume is source-specific feed volume.
+5. **Terms for commercial/backtesting use:** Unverified for both sources.
+
+### V5. Prior Incident Recorded
+- HTTP 429 on public `datafeed.dukascopy.com` endpoint (hourly `.bi5` files) with JSON error body. Do not retry that endpoint.
+
+### V6. Constraints Unchanged
+- No data download yet. No backtest. No fabrication. No spec changes.
+- Run tests only if code changes.
