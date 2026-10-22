@@ -325,3 +325,74 @@ Loader requires: `time,open,high,low,close` + one of `tick_volume` or `volume`.
 ### V6. Constraints Unchanged
 - No data download yet. No backtest. No fabrication. No spec changes.
 - Run tests only if code changes.
+
+## W. Data Adapter Feasibility & Volume Field Audit (this turn)
+
+### W1. Current Loader Requirements (from `shahkara/data.py`)
+The loader accepts CSV with columns:
+- **Required**: `time`, `open`, `high`, `low`, `close`
+- **Required volume**: one of `tick_volume` OR `volume` (at least one must exist)
+- **Optional**: `spread`
+- **Timezone handling**: caller must supply `utc_offset_hours` (fixed offset; DST not supported)
+
+The `Bar` dataclass stores: `time` (tz-aware), `open`, `high`, `low`, `close`, `tick_volume` (float), `spread` (float | None).
+
+### W2. Dukascopy Source Volume Fields — Verification Status
+
+| Source | Raw / Output Format | Volume Field(s) | Units / Definition | Verified? |
+|--------|---------------------|-----------------|-------------------|-----------|
+| **Official S3 (raw .bi5)** | 20-byte tick: timestamp(ms), ask_px, bid_px, ask_vol, bid_vol | `ask_vol`, `bid_vol` (float32) | "In millions of base currency units" (wiki) | **YES** (wiki) |
+| **Official S3 + pipeline** | M5 CSV: `time,open,high,low,close,volume,spread` | `volume` = sum(bid_vol + ask_vol) per bar | Aggregated from raw; same units | **YES** (pipeline code) |
+| **dukascopy-node tick CSV** | `timestamp,askPrice,bidPrice,askVolume,bidVolume` | `askVolume`, `bidVolume` | **Undefined** (example shows 0.75, no units) | **NO** |
+| **dukascopy-node OHLC CSV** | `timestamp,open,high,low,close` | **None** | N/A | **NO** (missing) |
+
+### W3. Can a Separate Data Adapter Be Built?
+
+**For Official S3 Export:**
+- **Yes**, a Python adapter can:
+  1. Use `aws s3 sync` / `boto3` to download `.bi5` daily files for XAUUSD (requires AWS credentials).
+  2. Decode LZMA + 20-byte struct (same as `duka-data` pipeline).
+  3. Resample ticks → M5 OHLC using bid prices; compute `volume = sum(bid_vol + ask_vol)` per bar; `spread = mean(ask - bid)`.
+  4. Output CSV matching loader schema: `time` (UTC ISO 8601), `open`, `high`, `low`, `close`, `volume`, `spread`.
+- **Blocker**: Requires **valid AWS credentials** and acceptance of Requester Pays costs. No Dukascopy trading account needed.
+
+**For dukascopy-node:**
+- **OHLC CSV**: Cannot satisfy loader (missing volume column). Would need to add volume via separate aggregation — but volume units are undocumented.
+- **Tick CSV**: Has `askVolume`/`bidVolume` but **units undefined**. Could resample to M5, but resulting volume semantics are unverified. Not recommended for strategy engines that depend on volume weighting.
+
+### W4. Volume Fields Blocking SHAHKARA VWCC Engine
+
+The strategy's **True VWCC** requires "dynamic intra-zone volume weights" across:
+- Order Block Mean Threshold
+- FVG Consequent Encroachment  
+- 0.705 Harmonic OTE
+
+**Current reality:**
+- Dukascopy provides **source-specific feed volume** (bid+ask on their SWFX venue), **not consolidated global gold market volume**.
+- No source in this investigation provides global consolidated volume for XAUUSD.
+- **Assumption required**: treat Dukascopy feed volume as a proxy. This is a **blocking assumption** that changes trade signals and must be owner-approved before VWCC implementation.
+
+### W5. Remaining Blockers for a Valid Backtest (Volume-Related)
+
+1. **Volume proxy assumption** (W4): using Dukascopy feed volume for VWCC — unverified, changes signals.
+2. **Research/backtesting license**: Neither S3 export nor dukascopy-node grants explicit permission for backtesting reuse (W4 item 2, V4 item 2).
+3. **dukascopy-node M5 for XAUUSD**: Claimed but not demonstrated (V4 item 3).
+4. **DST handling**: Loader uses fixed UTC offset; Dukascopy data is UTC. Broker DST rules still unknown (original open item).
+5. **Strategy formula gaps**: Hurst method/window, ATR period, OB/FVG definitions, zone construction, VWCC weighting, TPC score, etc. (Section B) — none resolved.
+
+### W6. Adapter Implementation Path (If Approved)
+
+If owner approves volume proxy and license, minimal adapter steps:
+1. Download XAUUSD `.bi5` from `s3://cfg-public-proper-wallaby/XAUUSD/` (daily files, 2003+).
+2. Decode with `lzma` + `struct.unpack('>iiiff')` per 20-byte record.
+3. Filter zero-volume ticks; convert prices via point divider 100 for XAUUSD.
+4. Resample to M5: `time` = bar open (UTC), `open/high/low/close` = bid, `volume` = sum(bid_vol+ask_vol), `spread` = mean(ask-bid).
+5. Write CSV with columns: `time,open,high,low,close,volume,spread`.
+6. Load via existing `shahkara.data.load_csv(path, utc_offset_hours=0)`.
+
+**No code changes to loader or strategy needed.**
+
+### W7. Tests
+- All 32 existing tests pass (`python3 -m unittest discover -s tests -t .`).
+- No new tests added this turn (no code changes).
+
