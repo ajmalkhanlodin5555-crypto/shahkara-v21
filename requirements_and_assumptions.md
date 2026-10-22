@@ -139,3 +139,21 @@ J6. **Break-even:** does it include spread and commission?
 
 ### K6. Not done (no fabricated data)
 - No candles fabricated; no backtest run; nothing claimed.
+
+## L. FXCM historical sample-data verification (this turn)
+
+Verified live via `candledata.fxcorporate.com` and the `fxcm/MarketData` GitHub repo.
+
+Findings:
+1. **M5 XAUUSD: NOT AVAILABLE.** All tested XAUUSD paths returned **404**, including `m5/XAUUSD/2020/1.csv.gz` and `m1/XAUUSD/2020/1.csv.gz`. (FXCM instrument list in the repo has no XAUUSD; timeframe support is **m1, H1, D1** only.)
+2. **Download link:** `https://candledata.fxcorporate.com/{periodicity}/{instrument}/{year}/{week}.csv.gz` (gzipped CSV). Reached **200 without account** for `D1/EURUSD/2020.csv.gz` → **publicly accessible**, no login needed for samples.
+3. **Format (D1 sample):** header `DateTime,BidOpen,BidHigh,BidLow,BidClose,AskOpen,AskHigh,AskLow,AskClose`; times like `01/01/2020 22:00:00.000`. **No volume field.** (README states timestamps in UTC and indicative lowest-spread data for Active Trader accounts; personal use per EULA.)
+4. **Terms for research/backtest:** repo note: "This is for personal use and abides by our EULA"; data "indicative"; scope may vary. Personal/research use is implied OK, but a formal review of the current EULA is still recommended before commercial use.
+
+Conclusion: **FXCM sample data is NOT suitable** for SHAHKARA v21 (needs genuine XAUUSD M5). It lacks M5 and XAUUSD entirely, and has no volume.
+
+Alternatives verified: Dukascopy (best, M5 possible via tick-compile, XAUUSD included, bid+volume+spread, UTC) → preferred.
+
+## M. Final status summary (this turn)
+- Completed: FXCM verification (not suitable), data-source doc updated.
+- Remaining blocked: strategy engines, backtest, real M5 data acquisition.
