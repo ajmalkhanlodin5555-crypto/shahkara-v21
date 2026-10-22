@@ -84,5 +84,12 @@ class Loader(unittest.TestCase):
         self.assertEqual(bars[0].time.tzinfo, timezone.utc)
 
 
+    def test_missing_volume_column_rejected(self):
+        # No supported volume column -> loader must reject, not invent one.
+        p = self._write("time,open,high,low,close\n2024-01-01 00:00,10,12,9,11\n")
+        with self.assertRaises(ValueError):
+            load_csv(p, 0)
+
+
 if __name__ == "__main__":
     unittest.main()

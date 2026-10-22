@@ -190,3 +190,9 @@ Limitations / open items:
 ## Q. Remaining limitations / not done
 - No performance backtest; no fabricated data; no live trading; no credentials requested.
 - Strategy engines (Hurst, ATR, OB/FVG, VWCC, TPC, Kyle, VPIN, macro, fix-clock, master verdict, backtest) still blocked/undone.
+
+## R. Volume suitability (this turn)
+
+- Dukascopy XAUUSD M5 provides `volume` = sum(bid_vol + ask_vol) (suitable traded volume) and `spread` = mean bid-ask. The loader accepts it via the supported volume column (`volume`, or `tick_volume`) and does not invent or substitute volume.
+- FXCM sample data had no volume field and lacked M5/XAUUSD anyway.
+- No limitation: the Dukascopy source has suitable volume data for the True VWCC weighting.
