@@ -84,3 +84,58 @@ J3. **Partial exit mechanics:** the 60%/40% split applies to which size: total f
 J4. **R basis:** confirm R:R uses the blended weighted-average entry and the structural SL.
 J5. **Tick-size rounding:** "exact-cent-level" prices: round to 0.01? Round toward or away from entry?
 J6. **Break-even:** does it include spread and commission?
+
+## K. Historical XAUUSD M5 data — sources evaluated (step 7 of last turn)
+
+### K1. Sources checked
+
+1. **Dukascopy (Swiss Bank) — Public historical datafeed / data export tool. STRONGEST CANDIDATE.**
+   - Verified on the project's own docs: the Historical Data Export is free, delivers `.csv`, timeframes "from tick-by-tick to monthly", personal use, EULA.
+   - Third-party pipeline `saleem-latif/duka-data` (MIT) compiles **M5 / H1 / H4 / D1 OHLC bars with bid/ask spread** from Dukascopy's public `datafeed.dukascopy.com` bi5 tick files, for FX, metals, energy and indices, **including XAUUSD** (XAUUSD/XAGUSD use a 1000 point divider, i.e. 3 implied decimals).
+   - Default symbols list does not include XAUUSD, but `--symbols XAUUSD` is supported.
+   - CSV schema (from that repo's docs): `time,open,high,low,close,volume,spread`; `time` = bar open time **UTC (ISO 8601)**; prices are **bid**; `volume` = bid_vol + ask_vol; `spread` = mean bid-ask spread in bar.
+   - Coverage: history back to 2003+ for major pairs; XAUUSD hours/session coverage per feed.
+   - **NOT OANDA data.** Must be labelled Dukascopy, per instructions. Broker: Dukascopy Bank SA.
+
+2. **FXCM (Stratos Group) MarketData GitHub repo — NOT SUITABLE.**
+   - Only M1, H1, D1; years 2017–2020; instrument list does not include XAUUSD. Not usable for M5 XAUUSD.
+
+3. **HistData.com — NOT SUITABLE for this strategy.**
+   - Only M1 (1 minute) max; XAUUSD available; but volume information removed (strategy needs volume weighting), and CSV formats mostly paid ($7/mo for MT5/Excel/NinjaTrader), free generic ASCII otherwise.
+
+4. **TradingView (your chart source) — NOT a data source for backtests here.**
+   - No account-free export path identified; and data would be TV-sourced, still not broker-supplied OANDA M5.
+
+5. **OANDA — EXCLUDED.**
+   - You have no OANDA account; cannot obtain M5 history without one. Not usable for now.
+
+### K2. Best available option
+
+**Dukascopy via the duka-data pipeline (or Dukascopy's own historical export), for XAUUSD, timeframe M5.**
+
+- It is broker-supplied (Dukascopy Bank SA), real market data, no fabrication.
+- It provides bid OHLC + volume + spread at M5 granularity (compiled from tick).
+- It is free and CSV-exportable, no OANDA account needed.
+- Caveats: not OANDA prices; timezone UTC (not OANDA London time) — must be handled explicitly; price decimals 3 for XAUUSD (vs broker-specific); session hours defined by Dukascopy.
+
+### K3. Limitations / decisions that remain
+- Time zone: data is UTC; strategy/fix windows use GMT/EST/BST. Open item, now partly answered (UTC).
+- Price basis: bid vs mid vs OANDA point values for XAUUSD.
+- Whether M5 bars are compiled (derived) vs natively offered by Dukascopy export tool. Flag as "likely derived from ticks, but confirm".
+- Volume: Dukascopy volume = bid+ask over bar; strategy's "True VWCC" needs an intra-zone volume weighting definition (open item B6/B7).
+- Terms: Dukascopy personal-use/EULA for the free export; duka-data code is MIT (code only). Data licence terms for bulk/research use should be confirmed with Dukascopy.
+
+### K4. Exact next steps (data)
+1. Run `python3 download.py --symbols XAUUSD --start <start> --end <end>` in a clone of `saleem-latif/duka-data`.
+2. Inspect `compiled/XAUUSD_M5.csv` schema and confirm M5 bars/UTC, bid, volume, spread.
+3. Convert/align time zone to broker/session time explicitly (do not silently change).
+4. Validate via `shahkara.validation` (gap, OHLC, monotonic).
+5. Then proceed to engines — only after you approve assumptions that change trades.
+
+### K5. Obtaining the CSV from an Android phone
+- Option A (recommended): run the download on a desktop/laptop on the same network, then open the local `dashboard.py` (http://127.0.0.1:8765) served to the phone browser, or copy the CSV out of the machine. Not phone-native.
+- Option B: use Dukascopy's own Historical Data Export web tool on the phone browser (free, CSV) — but M5 availability/quantities should be confirmed; may only offer tick/M1+ or need account.
+- Option C: Termux on Android + run the downloader (Python/pandas) — heavy; not recommended for full history, but possible for a modest range.
+
+### K6. Not done (no fabricated data)
+- No candles fabricated; no backtest run; nothing claimed.
