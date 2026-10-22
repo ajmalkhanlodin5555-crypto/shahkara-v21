@@ -157,3 +157,36 @@ Alternatives verified: Dukascopy (best, M5 possible via tick-compile, XAUUSD inc
 ## M. Final status summary (this turn)
 - Completed: FXCM verification (not suitable), data-source doc updated.
 - Remaining blocked: strategy engines, backtest, real M5 data acquisition.
+
+## N. Dukascopy historical XAUUSD M5 source — verified findings (this turn)
+
+Verified from the third-party pipeline `saleem-latif/duka-data` (MIT) docs/code and live checks of `datafeed.dukascopy.com`.
+
+Findings:
+1. **Source:** Dukascopy Bank SA (Swiss Bank) public historical datafeed. Method: fetch per-hour LZMA `.bi5` tick files, decode, resample to M5 OHLC.
+2. **Genuine XAUUSD M5:** YES available through this pipeline; XAUUSD included in the instruments handled (metals use point divider 1000 → 3 implied decimals). Method: `python3 download.py --symbols XAUUSD --start <start> --end <end>` → writes `compiled/XAUUSD_M5.csv`.
+3. **Date range / coverage:** history back to 2003+ for major pairs; XAUUSD session hours Sunday 20:00 UTC to Friday 23:59 UTC (Friday late hours may be empty).
+4. **Time zone:** UTC (bar open time ISO 8601 UTC). Not OANDA London time. Must be handled explicitly (open item on fix clock tz).
+5. **Bid/ask OHLC:** YES — uses **bid** for OHLC; **spread** = mean(ask-bid) in bar; **volume** = sum(bid_vol + ask_vol) (real traded volume aggregated per bar).
+6. **Volume type:** real traded volume (bid+ask), not just tick count. Good for True VWCC weighting.
+7. **M5 derivation:** M5 bars are **compiled/resampled from tick data** (5-min buckets); open=first bid, high=max bid, low=min bid, close=last bid, volume=sum, spread=mean.
+
+Limitations / open items:
+- Data is **Dukascopy**, **not OANDA** (do not label it OANDA).
+- M5 is derived from ticks (confirm acceptable).
+- Terms: duka-data code MIT; data personal-use/EULA per Dukascopy; bulk/research licence to confirm with Dukascopy.
+- Live feed checks hit rate limits (429) during verification; pipeline uses retries.
+
+## O. How to obtain the CSV via Android and import into this project
+- Preferred: run download on desktop/laptop (same network) and use local dashboard (`python3 dashboard.py` → http://127.0.0.1:8765) or copy `compiled/XAUUSD_M5.csv` via cloud/USB to phone; then read on Android via a Python app (Pydroid 3 / Termux).
+- Or: Termux on Android running the duka-data downloader directly (Python+pandas+numpy).
+- Or: Dukascopy's own web historical export in mobile browser (M5 support less certain).
+- Import into `shahkara`: loader now accepts both schemas — `time,open,high,low,close,tick_volume[,spread]` or `time,open,high,low,close,volume,spread` (Dukascopy). Tests added (`test_dukascopy_schema`).
+
+## P. Recommended initial date range (no large download yet)
+- Not yet downloaded. Recommended first run: a **single trading day** (e.g., `2025-06-02`) or a few days, to validate end-to-end (download → M5 CSV → load → validate → formulas) before any larger pull.
+- Reason: fast, small, confirms path; avoids large dataset before approval.
+
+## Q. Remaining limitations / not done
+- No performance backtest; no fabricated data; no live trading; no credentials requested.
+- Strategy engines (Hurst, ATR, OB/FVG, VWCC, TPC, Kyle, VPIN, macro, fix-clock, master verdict, backtest) still blocked/undone.

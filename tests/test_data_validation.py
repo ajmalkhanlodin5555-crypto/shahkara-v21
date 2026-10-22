@@ -74,6 +74,15 @@ class Loader(unittest.TestCase):
         with self.assertRaises(ValueError):
             load_csv(p, 0)
 
+    def test_dukascopy_schema(self):
+        # Dukascopy M5 CSV: time,open,high,low,close,volume,spread
+        p = self._write("time,open,high,low,close,volume,spread\n2025-06-02 00:00:00+00:00,2334.5,2335.2,2334.1,2334.9,12.0,0.10\n")
+        bars = load_csv(p, utc_offset_hours=0)
+        self.assertEqual(len(bars), 1)
+        self.assertEqual(bars[0].tick_volume, 12.0)
+        self.assertEqual(bars[0].spread, 0.10)
+        self.assertEqual(bars[0].time.tzinfo, timezone.utc)
+
 
 if __name__ == "__main__":
     unittest.main()
