@@ -215,3 +215,26 @@ Practical alternatives if retrying later:
 
 ## T. Final state (this turn)
 - Acquisition retried; blocked at hour 21; no M5 CSV produced; no fabrication; no backtest; no strategy/spec changes.
+
+## U. Alternative Dukascopy download methods (this turn)
+
+### U1. dukascopy-node (third-party tool)
+- Documents XAUUSD M5 history from **2003-05-05 UTC** with **CSV output**.
+- Supports **Bid or Ask** prices, **configurable UTC offset**, **optional volume output**.
+- **Important**: this is a **third-party tool using Dukascopy data**, **not OANDA data**. Do not claim its data matches OANDA or the user's broker.
+
+### U2. Dukascopy official Historical Data Export page
+- Describes **Bid/Ask prices**, **volume**, and **CSV export**.
+- Documented workflow **may require demo-account credentials** (account-free accessibility not confirmed).
+
+### U3. Unverified / unresolved
+- Exact **account-free accessibility** of `dukascopy-node` is unverified.
+- **Terms governing reuse** of downloaded data for research/backtesting are unverified.
+- **Volume field**: treat as **source-specific quote/feed volume**, not consolidated volume for the entire global gold market. Verify exact output definition before using it in SHAHKARA's volume-based engines.
+
+### U4. Prior incident recorded
+- The previous **HTTP 429** and **incomplete-download** incident on the public `datafeed.dukascopy.com` endpoint is documented. **Do not retry that endpoint** without resolution.
+
+### U5. Constraints (unchanged)
+- No data download, no backtest, no data invention, no spec modification.
+- Run tests only if code changes are made.
