@@ -59,3 +59,15 @@ Project scaffolding, a data loader and validator (duplicates, ordering, OHLC san
 
 ## F. Approval log
 No assumptions are approved yet.
+
+## G. Unfinished components (not started; each blocked by section B or C)
+- Hurst exponent engine; ATR; Order Block / FVG detection; zone construction
+- True VWCC; ladder price computation; blended entry and structural SL
+- TPC ray-tracing; Kyle's lambda; VPIN; macro (DXY / real yield) engine
+- LBMA fix-clock filter (time zone and DST decision needed)
+- H4/H1/M15 alignment; Bank Zone Quality; calibrated win probability and EV
+- Pyramiding logic; master verdict and 5-section report
+- Backtest engine, fill/cost model, and any performance results (no real broker data supplied yet)
+
+## H. Implemented so far (safe subset)
+`shahkara/formulas.py`, `data.py`, `validation.py` and `tests/`. The R:R function takes entry and stop as inputs; how the spec derives them is still open (item B15).
