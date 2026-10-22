@@ -71,3 +71,16 @@ No assumptions are approved yet.
 
 ## H. Implemented so far (safe subset)
 `shahkara/formulas.py`, `data.py`, `validation.py` and `tests/`. The R:R function takes entry and stop as inputs; how the spec derives them is still open (item B15).
+
+## I. Review log (step 2)
+- **Spec file check:** `docs/SHAHKARA_v21_SPEC.md` was checked by script for the title, both formulas, all thresholds (0.52, 0.45, 0.70, 0.705, 30%, +0.05), fix windows, 40/35/25, R:R values, exit splits, all five 20% layers and the closing line. All present. This is a key-string check, not a byte diff; a byte diff needs the original as a file. Please diff it against your own copy.
+- **Formula review:** Garman-Klass is dimensionless (log returns, per-bar) and price-scale invariant. SL Buffer = max(sigma_GK*1.5, ATR*0.35) mixes a unitless sigma with an ATR in USD. The spec does not say how to convert sigma to price units, so sigma_GK*1.5 is not comparable to ATR*0.35 without a decision. Implemented literally; not usable for trade placement until resolved.
+- **R:R:** measured as distance entry-to-stop times 2.2 / 4.2. The spec does not state the R basis (blended entry vs. structural SL), item B15.
+
+## J. Additional unresolved decisions (added this step)
+J1. **GK units (blocking for SL):** should sigma_GK be multiplied by price (or by a reference price) to get USD before comparing with ATR? Which price?
+J2. **GK window:** single bar or an average of variance over N bars, and where the sqrt is taken (before or after averaging)?
+J3. **Partial exit mechanics:** the 60%/40% split applies to which size: total filled, or only the filled layers at TP1 time?
+J4. **R basis:** confirm R:R uses the blended weighted-average entry and the structural SL.
+J5. **Tick-size rounding:** "exact-cent-level" prices: round to 0.01? Round toward or away from entry?
+J6. **Break-even:** does it include spread and commission?
