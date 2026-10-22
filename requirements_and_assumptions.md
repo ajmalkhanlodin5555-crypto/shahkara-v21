@@ -196,3 +196,22 @@ Limitations / open items:
 - Dukascopy XAUUSD M5 provides `volume` = sum(bid_vol + ask_vol) (suitable traded volume) and `spread` = mean bid-ask. The loader accepts it via the supported volume column (`volume`, or `tick_volume`) and does not invent or substitute volume.
 - FXCM sample data had no volume field and lacked M5/XAUUSD anyway.
 - No limitation: the Dukascopy source has suitable volume data for the True VWCC weighting.
+
+## S. Dukascopy hour-21 acquisition failure — diagnosis (this turn)
+
+Evidence gathered:
+- Retry run: hours 0–20 decoded OK; hour 21 → `lzma.LZMAError: Compressed data ended before the end-of-stream marker was reached`; hours 22–23 OK. No M5 CSV written.
+- Direct checks for hours 21, 22, 23: HTTP **429**, `content-length: 113`, `content-type: application/json`, body `{"error": "Too Many Requests. For instructions, see: https://www.dukascopy.com/wiki/en/development/data-export/"}`.
+- LZMA validation: decompressor `eof=False`, error `Input format not supported by decoder` → bodies are not valid/complete LZMA tick streams.
+
+Diagnosis: hour 21 (and now 21–23) are being rejected/rate-limited by the Dukascopy datafeed / transport; the earlier LZMAError indicates truncated or non-LZMA data. Confirmed cause is **source/transport-side** (429 / invalid input), not yet a proven decoder bug.
+
+Status: **ACQUISITION BLOCKED**. Data for 2025-06-02 is **not complete/verified**. No fabricated data used.
+
+Practical alternatives if retrying later:
+- Wait for rate-limit window to clear, then retry hour 21 alone.
+- Use Dukascopy's official historical data export tool / JForex data feed.
+- Use a different broker/source for M5 XAUUSD (e.g., MT5/Broker-supplied M5 history) if acceptable.
+
+## T. Final state (this turn)
+- Acquisition retried; blocked at hour 21; no M5 CSV produced; no fabrication; no backtest; no strategy/spec changes.
